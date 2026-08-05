@@ -36,9 +36,9 @@ For segregation, a compatibility matrix based on ADR 7.5.2 mixed-loading provisi
 
 | Layer | Tool |
 |---|---|
-| LLM | Llama 3.3 70B (via Groq API) |
+| LLM | Llama 3.1 8B Instant (via Groq API) |
 | Embeddings | all-MiniLM-L6-v2 (sentence-transformers) |
-| Vector DB | FAISS |
+| Vector store | FAISS |
 | RAG framework | LangChain |
 | UI | Gradio |
 | Environment | Google Colab |
@@ -52,21 +52,19 @@ The key contribution of SIFRA is **eliminating classification hallucination**. A
 
 SIFRA's deterministic Table A layer removes this failure mode: every classification (UN number, hazard class, packing group) is looked up against a verified reference and carries a *✅ Verified against ADR Table A* badge. The result is a single, exact, traceable answer every time.
 
-An ablation comparison (pure LLM vs. SIFRA with the Table A layer) on a 20-substance test set is included in the notebook to demonstrate this difference.
-
 ---
 
 ## How to Run
 
-SIFRA runs in **Google Colab** (no local install needed):
+SIFRA runs in **Google Colab** — no local install needed:
 
 1. Open `SIFRA.ipynb` in Google Colab
-2. Add your Groq API key to Colab Secrets as `GROQ_API_KEY` (free key at [groq.com](https://groq.com))
+2. Add your Groq API key to Colab Secrets (🔑 icon) as `GROQ_API_KEY` — get a free key at [groq.com](https://groq.com)
 3. Place the ADR 2025 PDFs in a Google Drive folder named `SIFRA`:
    - `2412006_E_ECE_TRANS_352_Vol.I_WEB_0.pdf` ([Volume 1](https://unece.org/transport/documents/2025/01/standards/adr-2025-volume-1))
    - `2412010_E_ECE_TRANS_352_Vol.II_WEB.pdf` ([Volume 2](https://unece.org/transport/documents/2025/01/standards/adr-2025-volume-2))
-4. Run cells in order (Cell 3 builds the vector store once — ~10 min — then it's saved to Drive)
-5. Click the public Gradio link to use SIFRA
+4. Run the cells in order (top to bottom). The first run builds the FAISS vector store from the PDFs and saves it to your Drive; on later runs it loads the saved store directly, so indexing only happens once.
+5. Click the public Gradio link at the bottom to use SIFRA.
 
 ---
 

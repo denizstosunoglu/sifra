@@ -1,23 +1,34 @@
-# SIFRA
+# 🚛 SIFRA
 ### Shipment Intelligence for Regulatory Compliance
 
-SIFRA is a RAG-powered compliance assistant for dangerous goods shipments. Enter a chemical name or UN number, select a transport mode (road / sea / air), and SIFRA instantly checks compliance against ADR, IMDG, and IATA DGR regulations — then tells you exactly what documents you need.
+SIFRA is a RAG-powered dangerous goods compliance assistant for road transport under **ADR 2025**. It answers two operational questions that shippers face every day:
+
+1. **Is this substance compliant for road transport, and what documents do I need?**
+2. **Can these two substances be loaded together in the same transport unit?**
+
+Built with a 3-layer architecture that combines a deterministic regulatory lookup with retrieval-augmented generation — so classifications are verifiable, not hallucinated.
 
 ---
 
 ## Demo
 
-> Screenshot / screen recording goes here after first working build
+**Compliance Check** — enter a chemical name or UN number, get a full compliance report with UN number, hazard class, packing group, tunnel code, and required documents.
+
+**Segregation Check** — enter two substances, find out if they can travel together (🟢 OK / 🟡 CAUTION / 🔴 FORBIDDEN) based on ADR mixed-loading rules.
 
 ---
 
-## Features
+## Architecture
 
-- 🔍 Query by chemical name or UN number
-- 🚛 Supports road (ADR), sea (IMDG), and air (IATA DGR) transport modes
-- ✅ Returns: compliance verdict · hazard class · packaging group · required documents
-- 📄 RAG over official regulatory PDFs — no hallucinated rules
-- 🌐 Gradio web interface, runs locally
+SIFRA uses three layers working together:
+
+**Layer 1 — Deterministic lookup (ADR Table A):** A verified reference set of common dangerous goods with their exact UN numbers, hazard classes, packing groups, labels, limited-quantity thresholds, and tunnel codes. This layer guarantees classification accuracy — no hallucination.
+
+**Layer 2 — RAG retrieval (ADR 2025 full text):** The complete ADR 2025 regulation (both volumes, ~1,340 pages) is chunked and embedded into a FAISS vector store. Relevant regulatory passages are retrieved for transport conditions, documentation requirements, and exemptions.
+
+**Layer 3 — LLM synthesis:** A large language model combines the verified facts (Layer 1) with the retrieved context (Layer 2) to produce a clear, structured compliance report. Every classification carries a ✅ *Verified against ADR Table A* badge.
+
+For segregation, a compatibility matrix based on ADR 7.5.2 mixed-loading provisions determines whether two hazard classes can be transported together, with special handling for acid/base combinations.
 
 ---
 
@@ -25,110 +36,61 @@ SIFRA is a RAG-powered compliance assistant for dangerous goods shipments. Enter
 
 | Layer | Tool |
 |---|---|
-| LLM | gpt-4o-mini (OpenAI API) |
+| LLM | Llama 3.3 70B (via Groq API) |
 | Embeddings | all-MiniLM-L6-v2 (sentence-transformers) |
 | Vector DB | FAISS |
 | RAG framework | LangChain |
 | UI | Gradio |
-| Language | Python 3.11+ |
+| Environment | Google Colab |
+| Language | Python 3 |
 
 ---
 
-## Setup
+## Results
 
-### 1. Clone the repo
-```bash
-git clone https://github.com/denizstosunoglu/sifra.git
-cd sifra
-```
+The key contribution of SIFRA is **eliminating classification hallucination**. A pure RAG+LLM approach can usually retrieve the right UN number, but its output is inconsistent and unverifiable — it sometimes returns multiple candidate UN numbers, hedges with "not in the text but general knowledge," or reformats classifications unpredictably. For an operational compliance tool, that ambiguity is unacceptable.
 
-### 2. Create a virtual environment
-```bash
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-```
+SIFRA's deterministic Table A layer removes this failure mode: every classification (UN number, hazard class, packing group) is looked up against a verified reference and carries a *✅ Verified against ADR Table A* badge. The result is a single, exact, traceable answer every time.
 
-### 3. Install dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Set up environment variables
-```bash
-cp .env.example .env
-```
-Then open `.env` and add your OpenAI API key:
-```
-OPENAI_API_KEY=sk-...
-```
-
-### 5. Add regulatory PDFs
-Place the following PDFs in the `data/` folder:
-- `ADR_2023.pdf` — [Download from UNECE](https://unece.org/transport/dangerous-goods/adr-2023)
-- `IMDG_2022.pdf` — [Download from IMO](https://www.imo.org)
-- `IATA_DGR_2024.pdf` — [Download from IATA](https://www.iata.org/en/publications/dgr/)
-
-> PDFs are not included in this repo due to size and licensing.
-
-### 6. Index the documents
-```bash
-python ingest.py
-```
-This chunks and embeds the PDFs into a local FAISS index (saved to `vectorstore/`).
-
-### 7. Run the app
-```bash
-python app.py
-```
-Open your browser at `http://localhost:7860`
+An ablation comparison (pure LLM vs. SIFRA with the Table A layer) on a 20-substance test set is included in the notebook to demonstrate this difference.
 
 ---
 
-## Example Output
+## How to Run
 
-```
-Input:   Acetone | Transport mode: Road (ADR)
-─────────────────────────────────────────────
-Verdict: ✅ COMPLIANT (with conditions)
-UN No:   UN1090
-Class:   3 — Flammable Liquid
-PG:      II
-Max qty: 1000 L per transport unit (LQ exemption available)
-Docs:    Transport Document · Safety Data Sheet · Emergency card (Tremcard)
-```
+SIFRA runs in **Google Colab** (no local install needed):
+
+1. Open `SIFRA.ipynb` in Google Colab
+2. Add your Groq API key to Colab Secrets as `GROQ_API_KEY` (free key at [groq.com](https://groq.com))
+3. Place the ADR 2025 PDFs in a Google Drive folder named `SIFRA`:
+   - `2412006_E_ECE_TRANS_352_Vol.I_WEB_0.pdf` ([Volume 1](https://unece.org/transport/documents/2025/01/standards/adr-2025-volume-1))
+   - `2412010_E_ECE_TRANS_352_Vol.II_WEB.pdf` ([Volume 2](https://unece.org/transport/documents/2025/01/standards/adr-2025-volume-2))
+4. Run cells in order (Cell 3 builds the vector store once — ~10 min — then it's saved to Drive)
+5. Click the public Gradio link to use SIFRA
 
 ---
 
-## Project Structure
+## Data Sources
 
-```
-sifra/
-├── app.py              # Gradio UI + main query logic
-├── ingest.py           # PDF chunking + FAISS indexing
-├── rag.py              # RAG chain (retrieval + LLM call)
-├── data/               # Regulatory PDFs (not tracked by git)
-├── vectorstore/        # FAISS index (generated by ingest.py)
-├── requirements.txt
-├── .env.example
-├── .gitignore
-└── README.md
-```
+- **ADR 2025** (Agreement concerning the International Carriage of Dangerous Goods by Road), UNECE — publicly available regulatory text
+- **ADR Table A reference set** — compiled classification data for 40 common dangerous goods
+
+PDFs are not included in this repository due to size; download links are provided above.
 
 ---
 
 ## Known Limitations
 
-- Coverage limited to the three PDFs indexed; regional annexes not included
-- LLM may mis-read ambiguous chemical names — always verify against official source for real shipments
-- Air transport (IATA) section coverage is less complete than ADR/IMDG
-- No support for radioactive materials (Class 7) in current version
+- The deterministic layer covers 40 common substances; a production version would need the full ADR Table A (~3,500 entries)
+- Coverage is limited to **road transport (ADR)**; sea (IMDG) and air (IATA DGR) are not yet included
+- The segregation matrix implements core ADR 7.5.2 principles but not every special provision
+- Not a substitute for a certified Dangerous Goods Safety Advisor (DGSA)
 
 ## Next Steps
 
-- Add Class 7 (radioactive) support
-- Expand to include UN Model Regulations
-- Add multi-language output (Turkish / English toggle)
-- Deploy to HuggingFace Spaces
+- Expand the deterministic layer to the full ADR Table A
+- Add IMDG (sea) and IATA DGR (air) transport modes
+- Add multi-substance load planning (more than two items)
 
 ---
 
@@ -138,5 +100,5 @@ MIT — see [LICENSE](LICENSE)
 
 ---
 
-*ECS Data Science & AI Program — Capstone Project · July 2026*  
+*ECS Data Science & AI Program — Capstone Project · 2026*
 *Deniz Tosunoglu*

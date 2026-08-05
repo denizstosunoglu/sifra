@@ -1,0 +1,13 @@
+.env
+.env.local
+venv/
+env/
+.venv/
+__pycache__/
+*.py[cod]
+data/
+vectorstore/
+*.pdf
+.DS_Store
+.ipynb_checkpoints/
+*.log
